@@ -4,7 +4,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body{margin:0;overflow:hidden;font-family:Arial;}
+body{margin:0;overflow:hidden;font-family:Arial;background:#eef2f7;}
 
 #video{
  position:absolute;width:100%;height:100%;
@@ -17,11 +17,12 @@ body{margin:0;overflow:hidden;font-family:Arial;}
 
 .ui{
  position:absolute;
- background:rgba(0,0,0,0.65);
+ background:rgba(0,60,120,0.75);
  color:white;
- padding:10px 15px;
- border-radius:12px;
+ padding:12px 18px;
+ border-radius:14px;
  z-index:3;
+ font-size:18px;
 }
 
 #msg{top:10px;left:50%;transform:translateX(-50%);}
@@ -32,12 +33,16 @@ body{margin:0;overflow:hidden;font-family:Arial;}
 
 <body>
 
-<div id="msg" class="ui">👋 Conecta la energía (punto 1)</div>
+<div id="msg" class="ui">📘 Conecta la energía (1)</div>
 <div id="score" class="ui">⭐ Puntaje: 0</div>
 <div id="timer" class="ui">⏱️ Tiempo: 60</div>
 
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas"></canvas>
+
+<!-- sonidos -->
+<audio id="okSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+<audio id="badSound" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
 
 <script>
 const video=document.getElementById("video");
@@ -48,12 +53,15 @@ const msg=document.getElementById("msg");
 const scoreTxt=document.getElementById("score");
 const timerTxt=document.getElementById("timer");
 
-// Cámara trasera
+const okSound=document.getElementById("okSound");
+const badSound=document.getElementById("badSound");
+
+// cámara trasera
 navigator.mediaDevices.getUserMedia({
  video:{facingMode:"environment"}
 }).then(s=>video.srcObject=s);
 
-// Tamaño
+// tamaño
 function resize(){
  canvas.width=innerWidth;
  canvas.height=innerHeight;
@@ -61,8 +69,7 @@ function resize(){
 resize();
 onresize=resize;
 
-// --------- JUEGO ---------
-
+// juego
 let step=0;
 let score=0;
 let time=60;
@@ -74,12 +81,12 @@ setInterval(()=>{
  time--;
  timerTxt.innerText="⏱️ Tiempo: "+time;
  if(time<=0){
-   msg.innerText="⏰ Tiempo agotado";
+   msg.innerText="⏰ Tiempo terminado. Intenta otra vez!";
    gameOver=true;
  }
 },1000);
 
-// puntos conexión
+// puntos
 const points=[
  {x:90,y:300},
  {x:180,y:300},
@@ -88,12 +95,11 @@ const points=[
 
 canvas.addEventListener("click",(e)=>{
  if(gameOver) return;
-
  const x=e.clientX;
  const y=e.clientY;
 
  points.forEach((p,i)=>{
-  if(Math.hypot(p.x-x,p.y-y)<25){
+  if(Math.hypot(p.x-x,p.y-y)<20){
     connect(i);
   }
  });
@@ -102,36 +108,41 @@ canvas.addEventListener("click",(e)=>{
 function connect(i){
 
  if(step===0 && i===0){
-   msg.innerText="✅ Energía lista! Conecta resistencia";
+   okSound.play();
+   msg.innerText="👏 Bien! Ahora la resistencia";
    score+=10;
    step=1;
  }
+
  else if(step===1 && i===1){
-   msg.innerText="👍 Resistencia correcta! Ahora LED";
+   okSound.play();
+   msg.innerText="👍 Excelente! Conecta el LED";
    score+=10;
    step=2;
  }
+
  else if(step===2 && i===2){
-   msg.innerText="🎉 Circuito completo!";
+   okSound.play();
+   msg.innerText="🎉 ¡Perfecto! Circuito completo";
    score+=20;
    step=3;
    gameOver=true;
  }
+
  else{
-   msg.innerText="❌ Error de conexión";
+   badSound.play();
+   msg.innerText="❌ Ups! Intenta el orden correcto";
    score-=5;
  }
 
  scoreTxt.innerText="⭐ Puntaje: "+score;
 }
 
-// --------- DIBUJO REALISTA ---------
-
+// dibujos
 function protoboard(){
- ctx.fillStyle="#d9d9d9";
+ ctx.fillStyle="#dcdcdc";
  ctx.fillRect(40,240,320,140);
 
- // agujeros
  for(let i=0;i<10;i++){
   for(let j=0;j<4;j++){
    ctx.fillStyle="#888";
@@ -142,34 +153,21 @@ function protoboard(){
  }
 }
 
-function led(){
- // base
- ctx.fillStyle="#222";
- ctx.fillRect(255,310,10,25);
-
- // luz
- ctx.fillStyle=(step===3)?"lime":"darkred";
- ctx.beginPath();
- ctx.arc(260,300,14,0,Math.PI*2);
- ctx.fill();
-}
-
 function resistor(){
  ctx.fillStyle="#c69c6d";
  ctx.fillRect(165,290,40,18);
+}
 
- ctx.strokeStyle="black";
- for(let i=0;i<4;i++){
-   ctx.beginPath();
-   ctx.moveTo(170+i*10,290);
-   ctx.lineTo(170+i*10,308);
-   ctx.stroke();
- }
+function led(){
+ ctx.fillStyle=(step===3)?"lime":"darkred";
+ ctx.beginPath();
+ ctx.arc(270,300,14,0,Math.PI*2);
+ ctx.fill();
 }
 
 function wires(){
  ctx.strokeStyle="lime";
- ctx.lineWidth=2;
+ ctx.lineWidth=4;
 
  if(step>0){
   ctx.beginPath();
@@ -190,11 +188,8 @@ function pointsDraw(){
  points.forEach((p,i)=>{
    ctx.fillStyle="cyan";
    ctx.beginPath();
-   ctx.arc(p.x,p.y,10,0,Math.PI*2);
+   ctx.arc(p.x,p.y,8,0,Math.PI*2);
    ctx.fill();
-
-   ctx.fillStyle="black";
-   ctx.fillText(i+1,p.x-4,p.y+4);
  });
 }
 
@@ -209,11 +204,8 @@ function draw(){
 
  requestAnimationFrame(draw);
 }
-
 draw();
 </script>
 
 </body>
 </html>
-
-

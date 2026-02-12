@@ -2,38 +2,51 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AR Tutor Circuitos</title>
 
 <style>
 body{margin:0;overflow:hidden;font-family:Arial;}
-#msg{
- position:absolute;
- top:10px;left:10px;
- background:rgba(0,0,0,0.6);
- color:white;
- padding:12px;
- border-radius:10px;
- font-size:18px;
- max-width:90%;
+
+#video{
+ position:absolute;width:100%;height:100%;
+ object-fit:cover;z-index:1;
 }
+
+#canvas{
+ position:absolute;top:0;left:0;z-index:2;
+}
+
+.ui{
+ position:absolute;
+ background:rgba(0,0,0,0.65);
+ color:white;
+ padding:10px 15px;
+ border-radius:12px;
+ z-index:3;
+}
+
+#msg{top:10px;left:50%;transform:translateX(-50%);}
+#score{bottom:10px;left:10px;}
+#timer{bottom:10px;right:10px;}
 </style>
 </head>
 
 <body>
 
-<div id="msg">👋 Bienvenido! Toca el punto de energía primero.</div>
+<div id="msg" class="ui">👋 Conecta la energía (punto 1)</div>
+<div id="score" class="ui">⭐ Puntaje: 0</div>
+<div id="timer" class="ui">⏱️ Tiempo: 60</div>
 
-<video id="video" autoplay playsinline
-style="position:absolute;width:100%;height:100%;object-fit:cover;"></video>
-
-<canvas id="canvas"
-style="position:absolute;top:0;left:0;"></canvas>
+<video id="video" autoplay playsinline></video>
+<canvas id="canvas"></canvas>
 
 <script>
 const video=document.getElementById("video");
 const canvas=document.getElementById("canvas");
 const ctx=canvas.getContext("2d");
+
 const msg=document.getElementById("msg");
+const scoreTxt=document.getElementById("score");
+const timerTxt=document.getElementById("timer");
 
 // Cámara trasera
 navigator.mediaDevices.getUserMedia({
@@ -48,127 +61,156 @@ function resize(){
 resize();
 onresize=resize;
 
-// ----- LÓGICA TUTOR IA -----
+// --------- JUEGO ---------
 
 let step=0;
-let connections=[];
+let score=0;
+let time=60;
+let gameOver=false;
 
-// puntos de conexión
+// temporizador
+setInterval(()=>{
+ if(gameOver) return;
+ time--;
+ timerTxt.innerText="⏱️ Tiempo: "+time;
+ if(time<=0){
+   msg.innerText="⏰ Tiempo agotado";
+   gameOver=true;
+ }
+},1000);
+
+// puntos conexión
 const points=[
- {x:90,y:300,name:"energia"},
- {x:160,y:300,name:"resistencia"},
- {x:240,y:300,name:"led"}
+ {x:90,y:300},
+ {x:180,y:300},
+ {x:270,y:300}
 ];
 
 canvas.addEventListener("click",(e)=>{
+ if(gameOver) return;
+
  const x=e.clientX;
  const y=e.clientY;
 
  points.forEach((p,i)=>{
-   let d=Math.hypot(p.x-x,p.y-y);
-   if(d<25){
-     handleConnection(i);
-   }
+  if(Math.hypot(p.x-x,p.y-y)<25){
+    connect(i);
+  }
  });
 });
 
-function handleConnection(i){
+function connect(i){
 
- // guía paso a paso
  if(step===0 && i===0){
-   msg.innerText="✅ Bien! Ahora conecta la resistencia.";
-   connections.push(i);
+   msg.innerText="✅ Energía lista! Conecta resistencia";
+   score+=10;
    step=1;
  }
  else if(step===1 && i===1){
-   msg.innerText="👍 Correcto! Ahora conecta el LED.";
-   connections.push(i);
+   msg.innerText="👍 Resistencia correcta! Ahora LED";
+   score+=10;
    step=2;
  }
  else if(step===2 && i===2){
-   msg.innerText="🎉 Circuito completo! LED encendido.";
-   connections.push(i);
+   msg.innerText="🎉 Circuito completo!";
+   score+=20;
    step=3;
+   gameOver=true;
  }
  else{
-   msg.innerText="❌ Orden incorrecto. Sigue las instrucciones.";
+   msg.innerText="❌ Error de conexión";
+   score-=5;
  }
+
+ scoreTxt.innerText="⭐ Puntaje: "+score;
 }
 
-// ----- DIBUJO AR -----
+// --------- DIBUJO REALISTA ---------
 
-function drawProtoboard(){
- ctx.strokeStyle="white";
- ctx.lineWidth=4;
- ctx.strokeRect(40,240,300,150);
+function protoboard(){
+ ctx.fillStyle="#d9d9d9";
+ ctx.fillRect(40,240,320,140);
 
  // agujeros
  for(let i=0;i<10;i++){
-  for(let j=0;j<3;j++){
-   ctx.fillStyle="gray";
+  for(let j=0;j<4;j++){
+   ctx.fillStyle="#888";
    ctx.beginPath();
-   ctx.arc(60+i*28,260+j*35,3,0,Math.PI*2);
+   ctx.arc(60+i*30,260+j*30,4,0,Math.PI*2);
    ctx.fill();
   }
  }
 }
 
-function drawPoints(){
- points.forEach((p,i)=>{
-   ctx.fillStyle="cyan";
-   ctx.beginPath();
-   ctx.arc(p.x,p.y,20,0,Math.PI*2);
-   ctx.fill();
+function led(){
+ // base
+ ctx.fillStyle="#222";
+ ctx.fillRect(255,310,10,25);
 
-   ctx.fillStyle="black";
-   ctx.fillText(i+1,p.x-5,p.y+5);
- });
-}
-
-function drawComponents(){
-
- // resistencia
- ctx.fillStyle="yellow";
- ctx.fillRect(140,290,40,20);
-
- // LED
- ctx.fillStyle=(step===3)?"lime":"red";
+ // luz
+ ctx.fillStyle=(step===3)?"lime":"darkred";
  ctx.beginPath();
- ctx.arc(260,300,15,0,Math.PI*2);
+ ctx.arc(260,300,14,0,Math.PI*2);
  ctx.fill();
 }
 
-function drawWires(){
+function resistor(){
+ ctx.fillStyle="#c69c6d";
+ ctx.fillRect(165,290,40,18);
+
+ ctx.strokeStyle="black";
+ for(let i=0;i<4;i++){
+   ctx.beginPath();
+   ctx.moveTo(170+i*10,290);
+   ctx.lineTo(170+i*10,308);
+   ctx.stroke();
+ }
+}
+
+function wires(){
  ctx.strokeStyle="lime";
  ctx.lineWidth=4;
 
- if(connections.includes(0)){
-   ctx.beginPath();
-   ctx.moveTo(90,300);
-   ctx.lineTo(160,300);
-   ctx.stroke();
+ if(step>0){
+  ctx.beginPath();
+  ctx.moveTo(90,300);
+  ctx.lineTo(180,300);
+  ctx.stroke();
  }
- if(connections.includes(1)){
-   ctx.beginPath();
-   ctx.moveTo(160,300);
-   ctx.lineTo(240,300);
-   ctx.stroke();
+
+ if(step>1){
+  ctx.beginPath();
+  ctx.moveTo(180,300);
+  ctx.lineTo(270,300);
+  ctx.stroke();
  }
 }
 
-// loop
+function pointsDraw(){
+ points.forEach((p,i)=>{
+   ctx.fillStyle="cyan";
+   ctx.beginPath();
+   ctx.arc(p.x,p.y,18,0,Math.PI*2);
+   ctx.fill();
+
+   ctx.fillStyle="black";
+   ctx.fillText(i+1,p.x-4,p.y+4);
+ });
+}
+
 function draw(){
  ctx.clearRect(0,0,canvas.width,canvas.height);
 
- drawProtoboard();
- drawPoints();
- drawComponents();
- drawWires();
+ protoboard();
+ resistor();
+ led();
+ wires();
+ pointsDraw();
 
  requestAnimationFrame(draw);
 }
-draw();
 
+draw();
 </script>
 
 </body>

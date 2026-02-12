@@ -4,7 +4,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body{margin:0;overflow:hidden;font-family:Arial;background:#eef2f7;}
+body{margin:0;overflow:hidden;font-family:Arial;}
 
 #video{
  position:absolute;width:100%;height:100%;
@@ -19,28 +19,43 @@ body{margin:0;overflow:hidden;font-family:Arial;background:#eef2f7;}
  position:absolute;
  background:rgba(0,60,120,0.75);
  color:white;
- padding:12px 18px;
- border-radius:14px;
+ padding:12px 16px;
+ border-radius:12px;
  z-index:3;
- font-size:18px;
+ font-size:16px;
 }
 
 #msg{top:10px;left:50%;transform:translateX(-50%);}
 #score{bottom:10px;left:10px;}
 #timer{bottom:10px;right:10px;}
+
+#info{
+ top:70px;
+ left:10px;
+ max-width:220px;
+ background:rgba(0,0,0,0.6);
+ font-size:14px;
+}
 </style>
 </head>
 
 <body>
 
-<div id="msg" class="ui">📘 Conecta la energía (1)</div>
-<div id="score" class="ui">⭐ Puntaje: 0</div>
-<div id="timer" class="ui">⏱️ Tiempo: 60</div>
+<div id="msg" class="ui">Conecta la energía (1)</div>
+<div id="score" class="ui">⭐ 0</div>
+<div id="timer" class="ui">⏱️ 60</div>
+
+<div id="info" class="ui">
+📘 COMPONENTES<br>
+Resistencia: limita corriente.<br>
+LED: emite luz.<br><br>
+⚠️ Error de conexión:<br>
+Sin resistencia → LED puede dañarse.
+</div>
 
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas"></canvas>
 
-<!-- sonidos -->
 <audio id="okSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
 <audio id="badSound" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
 
@@ -69,20 +84,27 @@ function resize(){
 resize();
 onresize=resize;
 
-// juego
+// estado
 let step=0;
 let score=0;
 let time=60;
 let gameOver=false;
 
+function instruction(){
+ if(step===0) return "Conecta la energía (1)";
+ if(step===1) return "Conecta la resistencia (2)";
+ if(step===2) return "Conecta el LED (3)";
+ if(step===3) return "🎉 Circuito completo!";
+}
+
 // temporizador
 setInterval(()=>{
  if(gameOver) return;
  time--;
- timerTxt.innerText="⏱️ Tiempo: "+time;
+ timerTxt.innerText="⏱️ "+time;
  if(time<=0){
-   msg.innerText="⏰ Tiempo terminado. Intenta otra vez!";
-   gameOver=true;
+  msg.innerText="Tiempo terminado";
+  gameOver=true;
  }
 },1000);
 
@@ -108,49 +130,45 @@ canvas.addEventListener("click",(e)=>{
 function connect(i){
 
  if(step===0 && i===0){
-   okSound.play();
-   msg.innerText="👏 Bien! Ahora la resistencia";
-   score+=10;
-   step=1;
+  okSound.play();
+  score+=10;
+  step=1;
  }
 
  else if(step===1 && i===1){
-   okSound.play();
-   msg.innerText="👍 Excelente! Conecta el LED";
-   score+=10;
-   step=2;
+  okSound.play();
+  score+=10;
+  step=2;
  }
 
  else if(step===2 && i===2){
-   okSound.play();
-   msg.innerText="🎉 ¡Perfecto! Circuito completo";
-   score+=20;
-   step=3;
-   gameOver=true;
+  okSound.play();
+  score+=20;
+  step=3;
+  gameOver=true;
  }
 
  else{
-   badSound.play();
-   msg.innerText="❌ Ups! Intenta el orden correcto";
-   score-=5;
+  badSound.play();
+  msg.innerText="❌ Error: orden incorrecto";
+  score-=5;
+
+  // volver a instrucción después de 2s
+  setTimeout(()=>{
+   msg.innerText=instruction();
+  },2000);
  }
 
- scoreTxt.innerText="⭐ Puntaje: "+score;
+ scoreTxt.innerText="⭐ "+score;
+
+ if(step<=3)
+  msg.innerText=instruction();
 }
 
 // dibujos
 function protoboard(){
  ctx.fillStyle="#dcdcdc";
  ctx.fillRect(40,240,320,140);
-
- for(let i=0;i<10;i++){
-  for(let j=0;j<4;j++){
-   ctx.fillStyle="#888";
-   ctx.beginPath();
-   ctx.arc(60+i*30,260+j*30,4,0,Math.PI*2);
-   ctx.fill();
-  }
- }
 }
 
 function resistor(){
@@ -185,11 +203,11 @@ function wires(){
 }
 
 function pointsDraw(){
- points.forEach((p,i)=>{
-   ctx.fillStyle="cyan";
-   ctx.beginPath();
-   ctx.arc(p.x,p.y,8,0,Math.PI*2);
-   ctx.fill();
+ points.forEach(p=>{
+  ctx.fillStyle="cyan";
+  ctx.beginPath();
+  ctx.arc(p.x,p.y,8,0,Math.PI*2);
+  ctx.fill();
  });
 }
 

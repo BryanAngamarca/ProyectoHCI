@@ -2,36 +2,27 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <style>
 body{margin:0;overflow:hidden;font-family:Arial;}
-
-#video{
- position:absolute;width:100%;height:100%;
- object-fit:cover;z-index:1;
-}
-
-#canvas{
- position:absolute;top:0;left:0;z-index:2;
-}
+#video{position:absolute;width:100%;height:100%;object-fit:cover;}
+#canvas{position:absolute;top:0;left:0;}
 
 .ui{
  position:absolute;
- background:rgba(0,60,120,0.75);
+ background:rgba(0,80,150,0.75);
  color:white;
- padding:12px 16px;
+ padding:10px 14px;
  border-radius:12px;
  z-index:3;
- font-size:16px;
 }
 
 #msg{top:10px;left:50%;transform:translateX(-50%);}
 #score{bottom:10px;left:10px;}
 #timer{bottom:10px;right:10px;}
+#level{top:10px;left:10px;}
 
 #info{
- top:70px;
- left:10px;
+ top:70px;left:10px;
  max-width:220px;
  background:rgba(0,0,0,0.6);
  font-size:14px;
@@ -41,169 +32,143 @@ body{margin:0;overflow:hidden;font-family:Arial;}
 
 <body>
 
-<div id="msg" class="ui">Conecta la energía (1)</div>
+<div id="msg" class="ui"></div>
 <div id="score" class="ui">⭐ 0</div>
 <div id="timer" class="ui">⏱️ 60</div>
+<div id="level" class="ui">Nivel 1</div>
 
 <div id="info" class="ui">
-📘 COMPONENTES<br>
-Resistencia: limita corriente.<br>
-LED: emite luz.<br><br>
-⚠️ Error de conexión:<br>
-Sin resistencia → LED puede dañarse.
+📘 Aprende:<br>
+Resistencia → protege LED<br>
+Interruptor → abre/cierra paso<br>
+Paralelo → varios LEDs
 </div>
 
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas"></canvas>
 
-<audio id="okSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
-<audio id="badSound" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
+<audio id="ok" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+<audio id="bad" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
 
 <script>
-const video=document.getElementById("video");
-const canvas=document.getElementById("canvas");
-const ctx=canvas.getContext("2d");
+const v=video, c=canvas, ctx=c.getContext("2d");
+navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})
+.then(s=>v.srcObject=s);
 
+function resize(){c.width=innerWidth;c.height=innerHeight;}
+resize(); onresize=resize;
+
+let score=0,time=60,level=0,step=0;
+const scoreTxt=scoreEl=document.getElementById("score");
 const msg=document.getElementById("msg");
-const scoreTxt=document.getElementById("score");
-const timerTxt=document.getElementById("timer");
+const lvlTxt=document.getElementById("level");
 
-const okSound=document.getElementById("okSound");
-const badSound=document.getElementById("badSound");
+const ok= document.getElementById("ok");
+const bad=document.getElementById("bad");
 
-// cámara trasera
-navigator.mediaDevices.getUserMedia({
- video:{facingMode:"environment"}
-}).then(s=>video.srcObject=s);
+const levels=[
+ // NIVEL 1
+ {
+  name:"Nivel 1",
+  steps:["Energía","Resistencia","LED"],
+  points:[
+   {x:90,y:300},
+   {x:180,y:300},
+   {x:270,y:300}
+  ]
+ },
 
-// tamaño
-function resize(){
- canvas.width=innerWidth;
- canvas.height=innerHeight;
-}
-resize();
-onresize=resize;
+ // NIVEL 2
+ {
+  name:"Nivel 2",
+  steps:["Energía","Interruptor","Resistencia","LED"],
+  points:[
+   {x:60,y:300},
+   {x:140,y:300},
+   {x:220,y:300},
+   {x:300,y:300}
+  ]
+ },
 
-// estado
-let step=0;
-let score=0;
-let time=60;
-let gameOver=false;
+ // NIVEL 3
+ {
+  name:"Nivel 3",
+  steps:["Energía","Resistencia","LED1","LED2"],
+  points:[
+   {x:90,y:300},
+   {x:170,y:300},
+   {x:250,y:260},
+   {x:250,y:340}
+  ]
+ }
+];
 
 function instruction(){
- if(step===0) return "Conecta la energía (1)";
- if(step===1) return "Conecta la resistencia (2)";
- if(step===2) return "Conecta el LED (3)";
- if(step===3) return "🎉 Circuito completo!";
+ if(step>=levels[level].steps.length)
+   return "🎉 Nivel completado!";
+ return "Conecta: "+levels[level].steps[step];
 }
+
+msg.innerText=instruction();
 
 // temporizador
 setInterval(()=>{
- if(gameOver) return;
  time--;
- timerTxt.innerText="⏱️ "+time;
- if(time<=0){
-  msg.innerText="Tiempo terminado";
-  gameOver=true;
- }
+ document.getElementById("timer").innerText="⏱️ "+time;
+ if(time<=0) msg.innerText="Tiempo terminado";
 },1000);
 
-// puntos
-const points=[
- {x:90,y:300},
- {x:180,y:300},
- {x:270,y:300}
-];
-
-canvas.addEventListener("click",(e)=>{
- if(gameOver) return;
- const x=e.clientX;
- const y=e.clientY;
-
- points.forEach((p,i)=>{
-  if(Math.hypot(p.x-x,p.y-y)<20){
+// click
+c.onclick=e=>{
+ const pts=levels[level].points;
+ pts.forEach((p,i)=>{
+  if(Math.hypot(p.x-e.clientX,p.y-e.clientY)<20)
     connect(i);
-  }
  });
-});
+};
+
+function nextLevel(){
+ level++;
+ if(level>=levels.length){
+   msg.innerText="🏆 ¡Curso completado!";
+   return;
+ }
+ step=0;
+ lvlTxt.innerText=levels[level].name;
+ msg.innerText=instruction();
+}
 
 function connect(i){
 
- if(step===0 && i===0){
-  okSound.play();
-  score+=10;
-  step=1;
- }
+ if(i===step){
+   ok.play();
+   score+=10;
+   step++;
 
- else if(step===1 && i===1){
-  okSound.play();
-  score+=10;
-  step=2;
+   if(step>=levels[level].steps.length){
+     score+=20;
+     setTimeout(nextLevel,1500);
+   }
  }
-
- else if(step===2 && i===2){
-  okSound.play();
-  score+=20;
-  step=3;
-  gameOver=true;
- }
-
  else{
-  badSound.play();
-  msg.innerText="❌ Error: orden incorrecto";
-  score-=5;
-
-  // volver a instrucción después de 2s
-  setTimeout(()=>{
-   msg.innerText=instruction();
-  },2000);
+   bad.play();
+   msg.innerText="❌ Error, revisa el orden";
+   score-=5;
+   setTimeout(()=>msg.innerText=instruction(),1500);
  }
 
  scoreTxt.innerText="⭐ "+score;
-
- if(step<=3)
-  msg.innerText=instruction();
+ msg.innerText=instruction();
 }
 
-// dibujos
-function protoboard(){
- ctx.fillStyle="#dcdcdc";
- ctx.fillRect(40,240,320,140);
+// DIBUJO
+function drawBoard(){
+ ctx.fillStyle="#ddd";
+ ctx.fillRect(40,240,340,140);
 }
 
-function resistor(){
- ctx.fillStyle="#c69c6d";
- ctx.fillRect(165,290,40,18);
-}
-
-function led(){
- ctx.fillStyle=(step===3)?"lime":"darkred";
- ctx.beginPath();
- ctx.arc(270,300,14,0,Math.PI*2);
- ctx.fill();
-}
-
-function wires(){
- ctx.strokeStyle="lime";
- ctx.lineWidth=4;
-
- if(step>0){
-  ctx.beginPath();
-  ctx.moveTo(90,300);
-  ctx.lineTo(180,300);
-  ctx.stroke();
- }
-
- if(step>1){
-  ctx.beginPath();
-  ctx.moveTo(180,300);
-  ctx.lineTo(270,300);
-  ctx.stroke();
- }
-}
-
-function pointsDraw(){
- points.forEach(p=>{
+function drawPoints(){
+ levels[level].points.forEach(p=>{
   ctx.fillStyle="cyan";
   ctx.beginPath();
   ctx.arc(p.x,p.y,8,0,Math.PI*2);
@@ -211,19 +176,42 @@ function pointsDraw(){
  });
 }
 
+function drawLED(x,y,on){
+ ctx.fillStyle=on?"lime":"darkred";
+ ctx.beginPath();
+ ctx.arc(x,y,14,0,Math.PI*2);
+ ctx.fill();
+}
+
 function draw(){
- ctx.clearRect(0,0,canvas.width,canvas.height);
+ ctx.clearRect(0,0,c.width,c.height);
+ drawBoard();
 
- protoboard();
- resistor();
- led();
- wires();
- pointsDraw();
+ const pts=levels[level].points;
 
+ // cables
+ ctx.strokeStyle="lime";
+ ctx.lineWidth=4;
+ for(let i=0;i<step-1;i++){
+  ctx.beginPath();
+  ctx.moveTo(pts[i].x,pts[i].y);
+  ctx.lineTo(pts[i+1].x,pts[i+1].y);
+  ctx.stroke();
+ }
+
+ // LEDs nivel 3
+ if(level===2){
+  drawLED(250,260,step>2);
+  drawLED(250,340,step>3);
+ }
+ else{
+  drawLED(270,300,step>=levels[level].steps.length);
+ }
+
+ drawPoints();
  requestAnimationFrame(draw);
 }
 draw();
 </script>
-
 </body>
 </html>

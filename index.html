@@ -2,80 +2,134 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AR Tutor Circuitos</title>
+<title>AR Tutor de Circuitos</title>
+
+<style>
+body{
+  margin:0;
+  overflow:hidden;
+  font-family: Arial;
+}
+
+#msg{
+  position:absolute;
+  top:10px;
+  left:10px;
+  color:white;
+  background:rgba(0,0,0,0.5);
+  padding:10px;
+  border-radius:10px;
+  font-size:18px;
+}
+</style>
 </head>
 
-<body style="margin:0; overflow:hidden;">
+<body>
 
-<video id="video" autoplay playsinline 
-style="position:absolute; width:100%; height:100%; object-fit:cover;">
-</video>
+<div id="msg">📘 Tutor AR iniciando...</div>
 
-<canvas id="canvas" 
-style="position:absolute; top:0; left:0;">
-</canvas>
+<video id="video" autoplay playsinline
+style="position:absolute;width:100%;height:100%;object-fit:cover;"></video>
+
+<canvas id="canvas"
+style="position:absolute;top:0;left:0;"></canvas>
 
 <script>
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+const msg = document.getElementById("msg");
 
-let ledOn = false;
+let ledOn=false;
+let showCurrent=false;
 
-// Cámara
-navigator.mediaDevices.getUserMedia({video:true})
-.then(stream => video.srcObject = stream);
+// 👉 CÁMARA TRASERA
+navigator.mediaDevices.getUserMedia({
+  video:{facingMode:"environment"}
+})
+.then(stream=>{
+  video.srcObject=stream;
+})
+.catch(err=>{
+  alert("Error cámara: "+err);
+});
 
 // Ajustar tamaño
 function resize(){
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
 }
 resize();
-window.onresize = resize;
+window.onresize=resize;
 
-// Tap para encender LED
-document.addEventListener("click", ()=>{
-  ledOn = !ledOn;
+// Tap interacción
+document.addEventListener("click",()=>{
+  ledOn=!ledOn;
+  showCurrent=ledOn;
 });
 
-// IA simple
-function analyze(){
-  return ledOn ? 
-    "✅ Circuito Correcto" :
-    "⚠️ LED Apagado";
+// IA educativa
+function tutorIA(){
+  if(!ledOn)
+    return "💡 Consejo: Cierra el circuito para encender el LED";
+  else
+    return "✅ Bien! La resistencia protege al LED";
 }
 
-// Dibujar AR
+// Dibujar protoboard
+function protoboard(){
+  ctx.strokeStyle="white";
+  ctx.lineWidth=4;
+  ctx.strokeRect(40,220,330,180);
+
+  // puntos
+  for(let i=0;i<10;i++){
+    for(let j=0;j<4;j++){
+      ctx.fillStyle="gray";
+      ctx.beginPath();
+      ctx.arc(60+i*30,240+j*35,3,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+}
+
+// Dibujar corriente
+function corriente(){
+  if(!showCurrent) return;
+
+  ctx.strokeStyle="lime";
+  ctx.lineWidth=4;
+  ctx.beginPath();
+  ctx.moveTo(140,290);
+  ctx.lineTo(220,290);
+  ctx.stroke();
+}
+
+// Dibujo AR
 function draw(){
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // Protoboard
-  ctx.strokeStyle="white";
-  ctx.lineWidth=4;
-  ctx.strokeRect(50,200,300,150);
+  protoboard();
 
   // LED
-  ctx.fillStyle = ledOn ? "lime" : "red";
+  ctx.fillStyle=ledOn?"lime":"red";
   ctx.beginPath();
-  ctx.arc(120,270,20,0,Math.PI*2);
+  ctx.arc(120,290,18,0,Math.PI*2);
   ctx.fill();
 
   ctx.fillStyle="white";
-  ctx.font="18px Arial";
-  ctx.fillText("LED",100,240);
+  ctx.fillText("LED",100,260);
 
   // Resistencia
   ctx.fillStyle="yellow";
-  ctx.fillRect(200,250,80,20);
+  ctx.fillRect(200,280,70,20);
   ctx.fillStyle="black";
-  ctx.fillText("R",235,245);
+  ctx.fillText("220Ω",205,275);
 
-  // Texto IA
-  ctx.fillStyle="cyan";
-  ctx.font="24px Arial";
-  ctx.fillText(analyze(),50,100);
+  corriente();
+
+  msg.innerText=tutorIA();
 
   requestAnimationFrame(draw);
 }

@@ -3,46 +3,34 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body{margin:0;overflow:hidden;font-family:Arial;}
-#video{position:absolute;width:100%;height:100%;object-fit:cover;}
-#canvas{position:absolute;top:0;left:0;}
+body{margin:0;overflow:hidden;font-family:Arial;background:black;}
+
+#video{
+ position:absolute;width:100%;height:100%;
+ object-fit:cover;
+}
+
+#canvas{
+ position:absolute;top:0;left:0;
+}
 
 .ui{
  position:absolute;
- background:rgba(0,80,150,0.75);
+ background:rgba(0,0,0,0.6);
  color:white;
- padding:10px 14px;
+ padding:10px 15px;
  border-radius:12px;
- z-index:3;
 }
 
 #msg{top:10px;left:50%;transform:translateX(-50%);}
 #score{bottom:10px;left:10px;}
-#timer{bottom:10px;right:10px;}
-#level{top:10px;left:10px;}
-
-#info{
- top:70px;left:10px;
- max-width:220px;
- background:rgba(0,0,0,0.6);
- font-size:14px;
-}
 </style>
 </head>
 
 <body>
 
-<div id="msg" class="ui"></div>
-<div id="score" class="ui">⭐ 0</div>
-<div id="timer" class="ui">⏱️ 60</div>
-<div id="level" class="ui">Nivel 1</div>
-
-<div id="info" class="ui">
-📘 Aprende:<br>
-Resistencia → protege LED<br>
-Interruptor → abre/cierra paso<br>
-Paralelo → varios LEDs
-</div>
+<div id="msg" class="ui">Arrastra la batería al inicio</div>
+<div id="score" class="ui">⭐0</div>
 
 <video id="video" autoplay playsinline></video>
 <canvas id="canvas"></canvas>
@@ -51,167 +39,174 @@ Paralelo → varios LEDs
 <audio id="bad" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
 
 <script>
-const v=video, c=canvas, ctx=c.getContext("2d");
-navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})
-.then(s=>v.srcObject=s);
+const v=video;
+const c=canvas;
+const ctx=c.getContext("2d");
 
-function resize(){c.width=innerWidth;c.height=innerHeight;}
+navigator.mediaDevices.getUserMedia({
+ video:{facingMode:"environment"}
+}).then(s=>v.srcObject=s);
+
+function resize(){
+ c.width=innerWidth;
+ c.height=innerHeight;
+}
 resize(); onresize=resize;
 
-let score=0,time=60,level=0,step=0;
-const scoreTxt=scoreEl=document.getElementById("score");
+let score=0;
 const msg=document.getElementById("msg");
-const lvlTxt=document.getElementById("level");
-
-const ok= document.getElementById("ok");
+const scoreTxt=document.getElementById("score");
+const ok=document.getElementById("ok");
 const bad=document.getElementById("bad");
 
-const levels=[
- // NIVEL 1
- {
-  name:"Nivel 1",
-  steps:["Energía","Resistencia","LED"],
-  points:[
-   {x:90,y:300},
-   {x:180,y:300},
-   {x:270,y:300}
-  ]
- },
+//////////////////////////////
+// SNAP POINTS
+//////////////////////////////
 
- // NIVEL 2
- {
-  name:"Nivel 2",
-  steps:["Energía","Interruptor","Resistencia","LED"],
-  points:[
-   {x:60,y:300},
-   {x:140,y:300},
-   {x:220,y:300},
-   {x:300,y:300}
-  ]
- },
-
- // NIVEL 3
- {
-  name:"Nivel 3",
-  steps:["Energía","Resistencia","LED1","LED2"],
-  points:[
-   {x:90,y:300},
-   {x:170,y:300},
-   {x:250,y:260},
-   {x:250,y:340}
-  ]
- }
+const slots=[
+ {x:100,y:350,filled:false},
+ {x:200,y:350,filled:false},
+ {x:300,y:350,filled:false}
 ];
 
-function instruction(){
- if(step>=levels[level].steps.length)
-   return "🎉 Nivel completado!";
- return "Conecta: "+levels[level].steps[step];
-}
+//////////////////////////////
+// COMPONENTES
+//////////////////////////////
 
-msg.innerText=instruction();
+let comps=[
+ {type:"battery",x:80,y:150,w:60,h:30,placed:false},
+ {type:"resistor",x:200,y:150,w:60,h:20,placed:false},
+ {type:"led",x:320,y:150,w:30,h:30,placed:false}
+];
 
-// temporizador
-setInterval(()=>{
- time--;
- document.getElementById("timer").innerText="⏱️ "+time;
- if(time<=0) msg.innerText="Tiempo terminado";
-},1000);
+let dragging=null;
 
-// click
-c.onclick=e=>{
- const pts=levels[level].points;
- pts.forEach((p,i)=>{
-  if(Math.hypot(p.x-e.clientX,p.y-e.clientY)<20)
-    connect(i);
+//////////////////////////////
+// DRAG SYSTEM
+//////////////////////////////
+
+c.onmousedown=e=>{
+ comps.forEach(comp=>{
+  if(e.clientX>comp.x && e.clientX<comp.x+comp.w &&
+     e.clientY>comp.y && e.clientY<comp.y+comp.h){
+       dragging=comp;
+  }
  });
 };
 
-function nextLevel(){
- level++;
- if(level>=levels.length){
-   msg.innerText="🏆 ¡Curso completado!";
-   return;
+c.onmousemove=e=>{
+ if(dragging){
+   dragging.x=e.clientX-20;
+   dragging.y=e.clientY-20;
  }
- step=0;
- lvlTxt.innerText=levels[level].name;
- msg.innerText=instruction();
-}
+};
 
-function connect(i){
+c.onmouseup=e=>{
+ if(!dragging) return;
 
- if(i===step){
-   ok.play();
-   score+=10;
-   step++;
+ // SNAP MAGNÉTICO
+ slots.forEach((s,i)=>{
+  if(!s.filled && Math.hypot(dragging.x-s.x,dragging.y-s.y)<40){
 
-   if(step>=levels[level].steps.length){
-     score+=20;
-     setTimeout(nextLevel,1500);
-   }
- }
- else{
-   bad.play();
-   msg.innerText="❌ Error, revisa el orden";
-   score-=5;
-   setTimeout(()=>msg.innerText=instruction(),1500);
- }
+    // ORDEN CORRECTO
+    if(
+     (i===0 && dragging.type==="battery") ||
+     (i===1 && dragging.type==="resistor") ||
+     (i===2 && dragging.type==="led")
+    ){
+      dragging.x=s.x;
+      dragging.y=s.y;
+      dragging.placed=true;
+      s.filled=true;
+      ok.play();
+      score+=10;
+      msg.innerText="✔ Correcto!";
+    }
+    else{
+      bad.play();
+      score-=5;
+      msg.innerText="❌ Error: orden incorrecto";
+      setTimeout(()=>{
+       msg.innerText="Sigue el orden: batería → resistencia → LED";
+      },1500);
+    }
+  }
+ });
 
- scoreTxt.innerText="⭐ "+score;
- msg.innerText=instruction();
-}
+ scoreTxt.innerText="⭐"+score;
+ dragging=null;
+};
 
-// DIBUJO
+//////////////////////////////
+// DIBUJOS REALISTAS
+//////////////////////////////
+
 function drawBoard(){
- ctx.fillStyle="#ddd";
- ctx.fillRect(40,240,340,140);
+ ctx.fillStyle="#e5e5e5";
+ ctx.fillRect(40,320,340,120);
 }
 
-function drawPoints(){
- levels[level].points.forEach(p=>{
-  ctx.fillStyle="cyan";
+function drawSlots(){
+ slots.forEach(s=>{
+  ctx.fillStyle="rgba(0,200,255,0.3)";
   ctx.beginPath();
-  ctx.arc(p.x,p.y,8,0,Math.PI*2);
+  ctx.arc(s.x+20,s.y+20,15,0,Math.PI*2);
   ctx.fill();
  });
 }
 
-function drawLED(x,y,on){
- ctx.fillStyle=on?"lime":"darkred";
- ctx.beginPath();
- ctx.arc(x,y,14,0,Math.PI*2);
- ctx.fill();
+function battery(x,y){
+ ctx.fillStyle="black";
+ ctx.fillRect(x,y,50,25);
+ ctx.fillStyle="gold";
+ ctx.fillRect(x+50,y+8,10,8);
 }
+
+function resistor(x,y){
+ ctx.fillStyle="#d2a679";
+ ctx.fillRect(x,y,40,16);
+ ctx.fillStyle="red"; ctx.fillRect(x+6,y,4,16);
+ ctx.fillStyle="blue"; ctx.fillRect(x+14,y,4,16);
+}
+
+function led(x,y){
+ let g=ctx.createRadialGradient(x,y,3,x,y,15);
+ g.addColorStop(0,"#7CFF7C");
+ g.addColorStop(1,"green");
+ ctx.fillStyle=g;
+ ctx.beginPath();
+ ctx.arc(x+10,y+10,12,0,Math.PI*2);
+ ctx.fill();
+
+ ctx.strokeStyle="silver";
+ ctx.beginPath();
+ ctx.moveTo(x+5,y+20);
+ ctx.lineTo(x+5,y+35);
+ ctx.moveTo(x+15,y+20);
+ ctx.lineTo(x+15,y+35);
+ ctx.stroke();
+}
+
+//////////////////////////////
+// LOOP
+//////////////////////////////
 
 function draw(){
  ctx.clearRect(0,0,c.width,c.height);
+
  drawBoard();
+ drawSlots();
 
- const pts=levels[level].points;
+ comps.forEach(comp=>{
+  if(comp.type==="battery") battery(comp.x,comp.y);
+  if(comp.type==="resistor") resistor(comp.x,comp.y);
+  if(comp.type==="led") led(comp.x,comp.y);
+ });
 
- // cables
- ctx.strokeStyle="lime";
- ctx.lineWidth=4;
- for(let i=0;i<step-1;i++){
-  ctx.beginPath();
-  ctx.moveTo(pts[i].x,pts[i].y);
-  ctx.lineTo(pts[i+1].x,pts[i+1].y);
-  ctx.stroke();
- }
-
- // LEDs nivel 3
- if(level===2){
-  drawLED(250,260,step>2);
-  drawLED(250,340,step>3);
- }
- else{
-  drawLED(270,300,step>=levels[level].steps.length);
- }
-
- drawPoints();
  requestAnimationFrame(draw);
 }
 draw();
+
 </script>
 </body>
 </html>
